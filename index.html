@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ABCD Learnify</title>
+<!-- PDF.js library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.10.111/pdf.min.js"></script>
+<style>
+  body {
+    font-family: 'Lucida Handwriting', cursive;
+    background: #FFF59D;
+    margin: 0;
+  }
+
+  .app {
+    width: 960px;
+    margin: 20px auto;
+    background: #DAEEDA;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    overflow: hidden;
+  }
+
+  .topbar {
+    padding: 15px 20px;
+    background: #1B5E20;
+    color: #FFF;
+    display: flex;
+    justify-content: space-between;
+    font-weight: bold;
+    font-size: 1.2em;
+  }
+
+  .container {
+    display: flex;
+    min-height: 500px;
+  }
+
+  .sidebar {
+    width: 220px;
+    background: #F9DCDC;
+    border-right: 2px solid #1B5E20;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .sidebar button {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #B71C1C;
+    background: #FFF0F0;
+    cursor: pointer;
+    font-weight: bold;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+  }
+
+  .sidebar button:hover {
+    background: #F9DCDC;
+    transform: scale(1.02);
+  }
+
+  .content {
+    flex: 1;
+    padding: 20px;
+    background: #FFF;
+    overflow-y: auto;
+  }
+
+  h2 {
+    margin-top: 0;
+    color: #4A148C;
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 150px;
+    padding: 10px;
+    border: 2px solid #1B5E20;
+    border-radius: 6px;
+    font-size: 1em;
+  }
+
+  button {
+    border: 2px solid #4A148C;
+    background: #CE93D8;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-radius: 6px;
+    font-weight: bold;
+  }
+
+  button:hover {
+    background: #B066C2;
+    color: #FFF;
+  }
+
+  .hidden { display: none; }
+  ul { margin-top: 5px; padding-left: 20px; }
+  
+  /* PDF viewer */
+  #pdfViewer {
+    width: 100%;
+    height: 400px;
+    border: 1px solid #1B5E20;
+    overflow: auto;
+    margin-top: 15px;
+    border-radius: 6px;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="topbar">
+    <span>ABCD Learnify</span>
+    <span>Smart Notes to Reviewer</span>
+  </div>
+
+  <div class="container">
+    <div class="sidebar">
+      <button onclick="showPage('home')">Home</button>
+      <button onclick="showPage('notes')">Smart Notes</button>
+      <button onclick="showPage('reviewer')">Reviewer</button>
+    </div>
+
+    <div class="content">
+      <!-- HOME -->
+      <div id="home">
+        <h2>Welcome, Sunshine!</h2>
+        <p>This application converts your lesson notes into a structured reviewer and short quiz automatically.</p>
+        <button onclick="showPage('notes')">Start Creating Smart Notes</button>
+      </div>
+
+      <!-- NOTES -->
+      <div id="notes" class="hidden">
+        <h2>Smart Notes Input</h2>
+        <input type="file" id="fileInput" accept=".txt, .pdf"><br><br>
+        <textarea id="notesInput" placeholder="Paste or type your lesson notes here..."></textarea><br><br>
+        <button onclick="generateReviewer()">Generate Reviewer</button>
+      </div>
+
+      <!-- REVIEWER -->
+      <div id="reviewer" class="hidden">
+        <h2>Generated Reviewer</h2>
+        <div id="reviewOutput"></div>
+        <div id="pdfViewer"></div>
+        <br>
+        <button onclick="startQuiz()">Take Short Quiz</button>
+        <button onclick="showPage('notes')">Edit Notes</button>
+      </div>
+
+      <!-- QUIZ -->
+      <div id="quiz" class="hidden">
+        <h2>Short Quiz</h2>
+        <div id="quizBox"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let quizData = [];
+let currentQuestion = 0;
+let score = 0;
+
+// Page switching
+function showPage(id) {
+  document.querySelectorAll('.content > div').forEach(div => div.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+
+// Generate reviewer
+function generateReviewer() {
+  const text = document.getElementById('notesInput').value.trim();
+  if (!text) {
+    alert('Please enter or upload notes first.');
+    return;
+  }
+
+  const sentences = text.split('.').map(s => s.trim()).filter(s => s.length > 20);
+  const words = text.split(/\s+/);
+  const keywords = [...new Set(words.filter(w => w.length > 6))].slice(0, 5);
+  const mainIdea = sentences.length ? sentences[0] + '.' : text;
+
+  document.getElementById('reviewOutput').innerHTML = `
+    <h3>Main Idea</h3>
+    <p>${mainIdea}</p>
+
+    <h3>Important Terms</h3>
+    <ul>${keywords.map(k => `<li>${k}</li>`).join('')}</ul>
+
+    <h3>Guide Questions</h3>
+    <ul>
+      <li>Define ${keywords[0] || 'the main concept'}.</li>
+      <li>Explain the importance of the lesson.</li>
+      <li>Give an example related to the topic.</li>
+    </ul>
+  `;
+
+  generateQuiz(keywords);
+  showPage('reviewer');
+}
+
+// Quiz functions
+function generateQuiz(keywords) {
+  quizData = [];
+  currentQuestion = 0;
+  score = 0;
+
+  quizData.push({
+    question: 'What is the main purpose of the lesson?',
+    choices: ['Entertainment', 'Learning a key concept', 'Guessing', 'Memorization only'],
+    answer: 1
+  });
+
+  if (keywords[0]) {
+    quizData.push({
+      question: `What best describes the term "${keywords[0]}"?`,
+      choices: ['A key concept', 'A person', 'A place', 'An object'],
+      answer: 0
+    });
+  }
+
+  quizData.push({
+    question: 'Why is reviewing important?',
+    choices: ['To forget lessons', 'To understand better', 'To waste time', 'To avoid studying'],
+    answer: 1
+  });
+}
+
+function startQuiz() {
+  showPage('quiz');
+  showQuestion();
+}
+
+function showQuestion() {
+  if (currentQuestion >= quizData.length) {
+    document.getElementById('quizBox').innerHTML = `
+      <h3>Quiz Completed</h3>
+      <p>Your Score: ${score} / ${quizData.length}</p>
+      <button onclick="showPage('reviewer')">Back to Reviewer</button>
+    `;
+    return;
+  }
+
+  const q = quizData[currentQuestion];
+  document.getElementById('quizBox').innerHTML = `
+    <p><strong>Question ${currentQuestion + 1}:</strong> ${q.question}</p>
+    ${q.choices.map((c, i) => `
+      <div>
+        <input type="radio" name="quiz" value="${i}"> ${c}
+      </div>
+    `).join('')}
+    <br>
+    <button onclick="submitAnswer()">Next</button>
+  `;
+}
+
+function submitAnswer() {
+  const selected = document.querySelector('input[name="quiz"]:checked');
+  if (!selected) { alert('Please select an answer.'); return; }
+  if (parseInt(selected.value) === quizData[currentQuestion].answer) score++;
+  currentQuestion++;
+  showQuestion();
+}
+
+// File upload support (TXT and PDF)
+const fileInput = document.getElementById('fileInput');
+fileInput.addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  if (file.type === 'application/pdf') {
+    // PDF.js viewer
+    const pdfViewer = document.getElementById('pdfViewer');
+    pdfViewer.innerHTML = '';
+    const fileReader = new FileReader();
+    fileReader.onload = function() {
+      const typedArray = new Uint8Array(this.result);
+      pdfjsLib.getDocument(typedArray).promise.then(pdf => {
+        for (let i = 1; i <= pdf.numPages; i++) {
+          pdf.getPage(i).then(page => {
+            const canvas = document.createElement('canvas');
+            pdfViewer.appendChild(canvas);
+            const context = canvas.getContext('2d');
+            const viewport = page.getViewport({ scale: 1.2 });
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+            page.render({ canvasContext: context, viewport: viewport });
+          });
+        }
+      });
+    };
+    fileReader.readAsArrayBuffer(file);
+    document.getElementById('notesInput').value = '';
+  } else {
+    // TXT file
+    const reader = new FileReader();
+    reader.onload = e => document.getElementById('notesInput').value = e.target.result;
+    reader.readAsText(file);
+    document.getElementById('pdfViewer').innerHTML = '';
+  }
+});
+</script>
+</body>
+</html>
